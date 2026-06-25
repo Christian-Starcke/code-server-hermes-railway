@@ -12,7 +12,7 @@ mkdir -p /home/coder/.hermes
 ENV_FILE="/home/coder/.hermes/.env"
 : > "$ENV_FILE"
 
-# Collect all known Hermes provider env vars that are set
+# Collect all known env vars (provider + MCP keys)
 ALL_KEYS="
 OPENROUTER_API_KEY ANTHROPIC_API_KEY OPENAI_API_KEY
 GEMINI_API_KEY DEEPSEEK_API_KEY XAI_API_KEY
@@ -20,6 +20,8 @@ HF_TOKEN MISTRAL_API_KEY ELEVENLABS_API_KEY
 GITHUB_TOKEN COPILOT_GITHUB_TOKEN
 VOICE_TOOLS_OPENAI_KEY
 GLM_API_KEY KIMI_API_KEY DASHSCOPE_API_KEY
+FIRECRAWL_API_KEY RETELL_API_KEY SUPABASE_PAT
+RAILWAY_API_TOKEN
 "
 
 for var in $ALL_KEYS; do
@@ -57,28 +59,30 @@ else
 fi
 
 # ── 3. Restore VS Code settings from image ────────────
-# The settings.json is baked into the Docker image. On each start, re-apply
-# it so dark theme, ACP config, etc. survive redeploys.
 SETTINGS_DIR="/home/coder/.local/share/code-server/User"
 mkdir -p "$SETTINGS_DIR"
 cp /home/coder/.local/share/code-server/User/settings.json "$SETTINGS_DIR/settings.json" 2>/dev/null || true
 echo "[$PREFIX] ✓ Restored VS Code settings"
 
-# ── 4. Install ACP Client extension ───────────────────
-# code-server's built-in extension pre-install doesn't reliably persist
-# across Docker images. Do it here on every start instead.
+# ── 4. Install VS Code extensions ────────────────────
 echo "[$PREFIX] Installing ACP Client extension..."
 code-server --install-extension formulahendry.acp-client --force 2>&1 | tail -1
 echo "[$PREFIX] ✓ ACP Client extension installed"
 
-# ── 5. Verify Hermes ACP configuration ─────────────────
-# NOTE: The ACP Client extension spawns `hermes acp` as its own subprocess
-# via settings.json. We don't start it here — just validate the setup works.
+echo "[$PREFIX] Installing n8n-as-code extension..."
+code-server --install-extension etienne-lescot.n8n-as-code --force 2>&1 | tail -1
+echo "[$PREFIX] ✓ n8n-as-code extension installed"
+
+# ── 5. Add Railway CLI to PATH ───────────────────────
+# Railway CLI is installed via npm at build time
+export PATH="$HOME/.npm-global/bin:$PATH"
+
+# ── 6. Verify Hermes ACP configuration ─────────────────
 echo "[$PREFIX] Checking Hermes ACP configuration..."
 /opt/hermes/bin/hermes acp --check 2>&1 && \
     echo "[$PREFIX] ✓ Hermes ACP configuration valid" || \
     echo "[$PREFIX] ⚠ Hermes ACP check failed — the extension may not connect"
 
-# ── 6. Start code-server (foreground) ─────────────────
+# ── 7. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
 exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$START_DIR"
