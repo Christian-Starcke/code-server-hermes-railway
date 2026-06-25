@@ -1,0 +1,11 @@
+{
+  "acp.agents": {
+    "Hermes Agent": {
+      "command": "hermes",
+      "args": ["acp"]
+    }
+  },
+  "acp.autoApprovePermissions": "ask",
+  "acp.logTraffic": false,
+  "acp.defaultWorkingDirectory": "/home/coder/project"
+}
