@@ -84,16 +84,16 @@ if [ -n "$N8N_API_KEY" ]; then
     cd "$START_DIR" || true
     
     # Check if the environment exists already
-    if n8nac env list 2>/dev/null | grep -q "Personal"; then
-        printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
+    if npx --yes n8nac env list 2>/dev/null | grep -q "Personal"; then
+        printf '%s' "$N8N_API_KEY" | npx --yes n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
         echo "[$PREFIX] ✓ n8n environment 'Personal' authenticated"
     else
         echo "[$PREFIX] Creating n8n environment 'Personal'..."
-        n8nac env add Personal \
+        npx --yes n8nac env add Personal \
             --base-url https://primary-production-10917.up.railway.app \
             --workflows-path workflows/starcke-n8n-railway-hosted 2>&1 | tail -1
-        printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
-        n8nac env use Personal 2>&1 | tail -1
+        printf '%s' "$N8N_API_KEY" | npx --yes n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
+        npx --yes n8nac env use Personal 2>&1 | tail -1
         echo "[$PREFIX] ✓ n8n environment 'Personal' created and authenticated"
     fi
 fi
