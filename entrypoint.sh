@@ -1,12 +1,11 @@
 #!/bin/bash
-set -e
 
 PREFIX="code-server-hermes"
 START_DIR="${START_DIR:-/home/coder/project}"
 
 mkdir -p "$START_DIR"
 
-# ── 1. Hermes setup ──────────────────────────────────────────────
+# ── 1. Hermes setup ─────────────────────────────────────
 mkdir -p /home/coder/.hermes
 
 # Write .env from Railway environment variables
@@ -42,7 +41,7 @@ if [ -n "$HERMES_CONFIG_B64" ]; then
     echo "[$PREFIX] ✓ Restored Hermes config.yaml"
 fi
 
-# ── 2. Clone repository ──────────────────────────────────────────
+# ── 2. Clone repository ───────────────────────────────
 if [ -n "${GIT_REPO}" ]; then
     if [ -d "$START_DIR/.git" ]; then
         echo "[$PREFIX] Repository already cloned"
@@ -57,7 +56,7 @@ else
     echo "Set GIT_REPO in Railway environment to auto-clone a repository." >> "$START_DIR/welcome.md"
 fi
 
-# ── 3. Start Hermes ACP server (background) ──────────────────────
+# ── 3. Start Hermes ACP server (background) ──────────────
 echo "[$PREFIX] Starting Hermes ACP..."
 hermes acp &
 HERMES_PID=$!
@@ -70,6 +69,6 @@ else
     echo "[$PREFIX] ⚠ Hermes ACP exited — check API keys"
 fi
 
-# ── 4. Start code-server (foreground) ────────────────────────────
+# ── 4. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
 exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$START_DIR"
