@@ -2,13 +2,15 @@ FROM codercom/code-server:4.126.0
 
 USER root
 
-# === Install Hermes ===
+# === Install Hermes + deps ===
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
     curl \
     git \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Hermes in its own venv
@@ -19,7 +21,11 @@ ENV PATH="/opt/hermes/bin:$PATH"
 
 # === Install Railway CLI ===
 # Required for Railway MCP server (railway mcp)
-RUN npm install -g @railway/cli
+ENV NPM_CONFIG_PREFIX=/home/coder/.npm-global
+ENV PATH="/home/coder/.npm-global/bin:$PATH"
+RUN mkdir -p /home/coder/.npm-global && \
+    npm install -g @railway/cli && \
+    chown -R coder:coder /home/coder/.npm-global
 
 # Pre-configure VS Code settings (dark theme, ACP config)
 COPY settings.json /home/coder/.local/share/code-server/User/settings.json
