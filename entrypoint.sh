@@ -56,7 +56,22 @@ else
     echo "Set GIT_REPO in Railway environment to auto-clone a repository." >> "$START_DIR/welcome.md"
 fi
 
-# ── 3. Verify Hermes ACP configuration ─────────────────
+# ── 3. Restore VS Code settings from image ────────────
+# The settings.json is baked into the Docker image. On each start, re-apply
+# it so dark theme, ACP config, etc. survive redeploys.
+SETTINGS_DIR="/home/coder/.local/share/code-server/User"
+mkdir -p "$SETTINGS_DIR"
+cp /home/coder/.local/share/code-server/User/settings.json "$SETTINGS_DIR/settings.json" 2>/dev/null || true
+echo "[$PREFIX] ✓ Restored VS Code settings"
+
+# ── 4. Install ACP Client extension ───────────────────
+# code-server's built-in extension pre-install doesn't reliably persist
+# across Docker images. Do it here on every start instead.
+echo "[$PREFIX] Installing ACP Client extension..."
+code-server --install-extension formulahendry.acp-client --force 2>&1 | tail -1
+echo "[$PREFIX] ✓ ACP Client extension installed"
+
+# ── 5. Verify Hermes ACP configuration ─────────────────
 # NOTE: The ACP Client extension spawns `hermes acp` as its own subprocess
 # via settings.json. We don't start it here — just validate the setup works.
 echo "[$PREFIX] Checking Hermes ACP configuration..."
@@ -64,6 +79,6 @@ echo "[$PREFIX] Checking Hermes ACP configuration..."
     echo "[$PREFIX] ✓ Hermes ACP configuration valid" || \
     echo "[$PREFIX] ⚠ Hermes ACP check failed — the extension may not connect"
 
-# ── 4. Start code-server (foreground) ─────────────────
+# ── 6. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
 exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$START_DIR"
