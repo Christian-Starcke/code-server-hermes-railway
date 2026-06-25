@@ -56,18 +56,13 @@ else
     echo "Set GIT_REPO in Railway environment to auto-clone a repository." >> "$START_DIR/welcome.md"
 fi
 
-# ── 3. Start Hermes ACP server (background) ──────────────
-echo "[$PREFIX] Starting Hermes ACP..."
-hermes acp &
-HERMES_PID=$!
-
-# Wait briefly and verify
-sleep 2
-if kill -0 $HERMES_PID 2>/dev/null; then
-    echo "[$PREFIX] ✓ Hermes ACP is running (PID: $HERMES_PID)"
-else
-    echo "[$PREFIX] ⚠ Hermes ACP exited — check API keys"
-fi
+# ── 3. Verify Hermes ACP configuration ─────────────────
+# NOTE: The ACP Client extension spawns `hermes acp` as its own subprocess
+# via settings.json. We don't start it here — just validate the setup works.
+echo "[$PREFIX] Checking Hermes ACP configuration..."
+/opt/hermes/bin/hermes acp --check 2>&1 && \
+    echo "[$PREFIX] ✓ Hermes ACP configuration valid" || \
+    echo "[$PREFIX] ⚠ Hermes ACP check failed — the extension may not connect"
 
 # ── 4. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
