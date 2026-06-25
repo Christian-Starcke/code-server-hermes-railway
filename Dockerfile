@@ -27,11 +27,14 @@ RUN code-server --install-extension esbenp.prettier-vscode
 COPY settings.json /home/coder/.local/share/code-server/User/settings.json
 RUN chown -R coder:coder /home/coder/.local
 
-USER coder
-
 # Port
 ENV PORT=8080
 
 # Custom entrypoint starts Hermes ACP in the background, then code-server
 COPY entrypoint.sh /usr/bin/deploy-container-entrypoint.sh
-ENTRYPOINT ["/usr/bin/deploy-container-entrypoint.sh"]
+RUN chmod +x /usr/bin/deploy-container-entrypoint.sh
+
+USER coder
+
+# Run via bash so a missing executable bit can't block startup (Git files default to 644)
+ENTRYPOINT ["bash", "/usr/bin/deploy-container-entrypoint.sh"]
