@@ -78,24 +78,33 @@ echo "[$PREFIX] ✓ n8n-as-code extension installed"
 export PATH="$HOME/.npm-global/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
 
-# ── 6. Configure n8n environment auth ─────────────────
+# ── 6. Configure n8n environment + update AI context ──
 if [ -n "$N8N_API_KEY" ]; then
     echo "[$PREFIX] Configuring n8n environment..."
     cd "$START_DIR" || true
     
     # Check if the environment exists already
-    if npx --yes n8nac env list 2>/dev/null | grep -q "Personal"; then
-        printf '%s' "$N8N_API_KEY" | npx --yes n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
+    if n8nac env list 2>/dev/null | grep -q "Personal"; then
+        printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
         echo "[$PREFIX] ✓ n8n environment 'Personal' authenticated"
     else
         echo "[$PREFIX] Creating n8n environment 'Personal'..."
-        npx --yes n8nac env add Personal \
+        n8nac env add Personal \
             --base-url https://primary-production-10917.up.railway.app \
             --workflows-path workflows/starcke-n8n-railway-hosted 2>&1 | tail -1
-        printf '%s' "$N8N_API_KEY" | npx --yes n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
-        npx --yes n8nac env use Personal 2>&1 | tail -1
+        printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
+        n8nac env use Personal 2>&1 | tail -1
         echo "[$PREFIX] ✓ n8n environment 'Personal' created and authenticated"
     fi
+    
+    # Update AI context (schemas, skills, examples) for the IDE
+    echo "[$PREFIX] Updating n8n AI context..."
+    n8nac update-ai 2>&1 | tail -2
+    echo "[$PREFIX] ✓ n8n AI context updated"
+    
+    # Show workflow count
+    WF_COUNT=$(n8nac list 2>&1 | grep -cE "^(│ )?[a-zA-Z0-9_-]+" || echo "0")
+    echo "[$PREFIX] n8n: $WF_COUNT workflows available"
 fi
 
 # ── 7. Verify Hermes ACP configuration ─────────────────

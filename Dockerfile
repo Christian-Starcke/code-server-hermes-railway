@@ -19,12 +19,12 @@ RUN python3 -m venv /opt/hermes && \
     /opt/hermes/bin/pip install hermes-agent[acp]
 ENV PATH="/opt/hermes/bin:$PATH"
 
-# === Install Railway CLI ===
-# Required for Railway MCP server (railway mcp)
+# === Install Railway CLI + n8nac ===
+# Required for Railway MCP server (railway mcp) and n8n-as-code CLI
 ENV NPM_CONFIG_PREFIX=/home/coder/.npm-global
 ENV PATH="/home/coder/.npm-global/bin:$PATH"
 RUN mkdir -p /home/coder/.npm-global && \
-    npm install -g @railway/cli && \
+    npm install -g @railway/cli n8nac && \
     chown -R coder:coder /home/coder/.npm-global
 
 # Pre-configure VS Code settings (dark theme, ACP config)
