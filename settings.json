@@ -1,6 +1,7 @@
 {
   "workbench.colorTheme": "Default Dark Modern",
   "workbench.preferredDarkColorTheme": "Default Dark Modern",
+  "workbench.startupEditor": "none",
   "acp.agents": {
     "Hermes Agent": {
       "command": "/opt/hermes/bin/hermes",
