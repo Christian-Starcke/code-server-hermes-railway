@@ -1,7 +1,7 @@
 {
   "acp.agents": {
     "Hermes Agent": {
-      "command": "hermes",
+      "command": "/opt/hermes/bin/hermes",
       "args": ["acp"]
     }
   },
