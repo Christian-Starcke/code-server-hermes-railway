@@ -22,6 +22,9 @@ VOICE_TOOLS_OPENAI_KEY
 GLM_API_KEY KIMI_API_KEY DASHSCOPE_API_KEY
 FIRECRAWL_API_KEY RETELL_API_KEY SUPABASE_PAT
 N8N_API_KEY RAILWAY_API_TOKEN
+RESEND_API_KEY SENTRY_ACCESS_TOKEN
+BETTERSTACK_API_TOKEN POSTHOG_PERSONAL_API_KEY
+N8N_NATIVE_MCP_TOKEN N8N_NATIVE_MCP_URL
 "
 
 for var in $ALL_KEYS; do
@@ -107,12 +110,100 @@ if [ -n "$N8N_API_KEY" ]; then
     echo "[$PREFIX] n8n: $WF_COUNT workflows available"
 fi
 
-# ── 7. Verify Hermes ACP configuration ─────────────────
+# ── 7. Generate native VS Code mcp.json ────────────────
+echo "[$PREFIX] Generating native MCP mcp.json..."
+MCP_JSON_DIR="$START_DIR/.vscode"
+mkdir -p "$MCP_JSON_DIR"
+
+python3 << 'PYEOF'
+import json, os
+
+start_dir = os.environ.get("START_DIR", "/home/coder/project")
+mcp_path = os.path.join(start_dir, ".vscode", "mcp.json")
+
+mcp = {
+    "mcpServers": {
+        "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github"],
+            "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": os.environ.get("GITHUB_TOKEN", "")}
+        },
+        "firecrawl": {
+            "command": "npx",
+            "args": ["-y", "firecrawl-mcp"],
+            "env": {"FIRECRAWL_API_KEY": os.environ.get("FIRECRAWL_API_KEY", "")}
+        },
+        "railway": {
+            "command": "/home/coder/.npm-global/bin/railway",
+            "args": ["mcp"]
+        },
+        "retellai": {
+            "command": "npx",
+            "args": ["-y", "@abhaybabbar/retellai-mcp-server"],
+            "env": {"RETELL_API_KEY": os.environ.get("RETELL_API_KEY", "")}
+        },
+        "supabase": {
+            "command": "npx",
+            "args": ["-y", "@supabase/mcp-server-supabase@latest",
+                     "--access-token", os.environ.get("SUPABASE_PAT", "")]
+        },
+        "resend": {
+            "command": "npx",
+            "args": ["-y", "resend-mcp"],
+            "env": {"RESEND_API_KEY": os.environ.get("RESEND_API_KEY", "")}
+        },
+        "n8nac": {
+            "command": "npx",
+            "args": ["-y", "@n8n-as-code/mcp"],
+            "env": {
+                "N8N_AS_CODE_PROJECT_DIR": start_dir + "/Codex_n8n-as-code",
+                "N8NAC_NATIVE_MCP_ENABLED": "1",
+                "N8N_NATIVE_MCP_URL": os.environ.get("N8N_NATIVE_MCP_URL", ""),
+                "N8NAC_NATIVE_MCP_TOKEN": os.environ.get("N8N_NATIVE_MCP_TOKEN", "")
+            }
+        },
+        "openrouter": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "https://mcp.openrouter.ai/mcp",
+                     "--header", "Authorization: Bearer " + os.environ.get("OPENROUTER_API_KEY", "")]
+        },
+        "vercel": {
+            "url": "https://mcp.vercel.com"
+        },
+        "sentry": {
+            "command": "npx",
+            "args": ["-y", "@sentry/mcp-server@latest"],
+            "env": {
+                "SENTRY_ACCESS_TOKEN": os.environ.get("SENTRY_ACCESS_TOKEN", ""),
+                "MCP_DISABLE_SKILLS": "seer"
+            }
+        },
+        "better-stack": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "https://mcp.betterstack.com",
+                     "--header", "Authorization: Bearer " + os.environ.get("BETTERSTACK_API_TOKEN", "")]
+        },
+        "posthog": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "https://mcp.posthog.com/mcp",
+                     "--header", "Authorization: Bearer " + os.environ.get("POSTHOG_PERSONAL_API_KEY", "")]
+        }
+    }
+}
+
+os.makedirs(os.path.dirname(mcp_path), exist_ok=True)
+with open(mcp_path, "w") as f:
+    json.dump(mcp, f, indent=2)
+
+PYEOF
+echo "[$PREFIX] ✓ Generated native mcp.json with 12 MCP servers"
+
+# ── 8. Verify Hermes ACP configuration ─────────────────
 echo "[$PREFIX] Checking Hermes ACP configuration..."
 /opt/hermes/bin/hermes acp --check 2>&1 && \
     echo "[$PREFIX] ✓ Hermes ACP configuration valid" || \
     echo "[$PREFIX] ⚠ Hermes ACP check failed — the extension may not connect"
 
-# ── 8. Start code-server (foreground) ─────────────────
+# ── 9. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
 exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$START_DIR"
