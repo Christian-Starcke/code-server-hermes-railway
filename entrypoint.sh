@@ -113,6 +113,41 @@ echo "[$PREFIX] ✓ n8n-as-code extension installed"
 export PATH="$HOME/.npm-global/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
 
+# Persist PATH for interactive terminals (Hermes ACP, code-server terminal)
+BASHRC_MARKER="# code-server-hermes shell"
+if ! grep -qF "$BASHRC_MARKER" "$HOME/.bashrc" 2>/dev/null; then
+    cat >> "$HOME/.bashrc" << 'EOF'
+# code-server-hermes shell
+export PATH="$HOME/.npm-global/bin:$PATH"
+export N8NAC_TELEMETRY_DISABLED=1
+EOF
+fi
+
+# Persist railway CLI config on workspace volume (device-code login survives redeploys)
+RAILWAY_STATE_DIR="$START_DIR/.railway-cli"
+mkdir -p "$RAILWAY_STATE_DIR"
+if [ ! -L "$HOME/.railway" ]; then
+    rm -rf "$HOME/.railway" 2>/dev/null || true
+    ln -sfn "$RAILWAY_STATE_DIR" "$HOME/.railway"
+fi
+
+if [ -n "$RAILWAY_API_TOKEN" ]; then
+    if railway whoami >/dev/null 2>&1; then
+        WHOAMI=$(railway whoami 2>/dev/null | head -1)
+        echo "[$PREFIX] ✓ Railway CLI authenticated via RAILWAY_API_TOKEN ($WHOAMI)"
+    else
+        echo "[$PREFIX] ⚠ RAILWAY_API_TOKEN is set but railway whoami failed (check account-level token scope)"
+    fi
+    if [ -n "${RAILWAY_PROJECT_ID:-}" ] && [ -n "${RAILWAY_ENVIRONMENT_ID:-}" ]; then
+        railway link --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT_ID" >/dev/null 2>&1 || true
+        echo "[$PREFIX] ✓ Railway project linked"
+    fi
+elif [ -f "$RAILWAY_STATE_DIR/config.json" ]; then
+    echo "[$PREFIX] ✓ Railway CLI config restored from volume — run railway whoami to verify"
+else
+    echo "[$PREFIX] ⚠ No RAILWAY_API_TOKEN — run: railway login --browserless (device-code flow)"
+fi
+
 # ── 6. Configure n8n environment + update AI context ──
 if [ -n "$N8N_API_KEY" ] && [ -d "$N8N_AS_CODE_PROJECT_DIR" ]; then
     echo "[$PREFIX] Configuring n8n environment in $N8N_AS_CODE_PROJECT_DIR ..."
