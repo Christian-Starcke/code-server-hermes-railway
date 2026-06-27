@@ -2,6 +2,8 @@
 
 PREFIX="code-server-hermes"
 START_DIR="${START_DIR:-/home/coder/project}"
+N8N_AS_CODE_PROJECT_DIR="${N8N_AS_CODE_PROJECT_DIR:-$START_DIR/n8n-as-code}"
+export START_DIR N8N_AS_CODE_PROJECT_DIR
 
 mkdir -p "$START_DIR"
 
@@ -46,19 +48,43 @@ if [ -n "$HERMES_CONFIG_B64" ]; then
     echo "[$PREFIX] ✓ Restored Hermes config.yaml"
 fi
 
-# ── 2. Clone repository ───────────────────────────────
-if [ -n "${GIT_REPO}" ]; then
-    if [ -d "$START_DIR/.git" ]; then
-        echo "[$PREFIX] Repository already cloned"
-    else
-        echo "[$PREFIX] Cloning $GIT_REPO ..."
-        git clone "$GIT_REPO" "$START_DIR" 2>&1 || \
-            echo "[$PREFIX] ⚠ Git clone failed — check GIT_REPO value and credentials"
+# ── 2. Multi-repo workspace bootstrap ─────────────────
+configure_git_auth() {
+    if [ -n "$GITHUB_TOKEN" ]; then
+        git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
     fi
-else
-    echo "[$PREFIX] No GIT_REPO set — starting with empty workspace"
+}
+
+clone_or_pull() {
+    local url="$1"
+    local dest="$2"
+    if [ -z "$url" ]; then
+        return 0
+    fi
+    if [ -d "$dest/.git" ]; then
+        echo "[$PREFIX] Pulling $dest ..."
+        git -C "$dest" pull --ff-only 2>&1 || \
+            echo "[$PREFIX] ⚠ Git pull failed — $dest"
+    else
+        echo "[$PREFIX] Cloning $url -> $dest ..."
+        git clone "$url" "$dest" 2>&1 || \
+            echo "[$PREFIX] ⚠ Git clone failed — $dest"
+    fi
+}
+
+configure_git_auth
+clone_or_pull "$GIT_REPO_N8N" "$START_DIR/n8n-as-code"
+clone_or_pull "$GIT_REPO_PLAYBOOK" "$START_DIR/prism-playbook"
+clone_or_pull "$GIT_REPO_PLATFORM" "$START_DIR/prism-platform"
+
+if [ -n "${GIT_REPO}" ] && [ -z "$GIT_REPO_N8N$GIT_REPO_PLAYBOOK$GIT_REPO_PLATFORM" ]; then
+    echo "[$PREFIX] ⚠ Legacy GIT_REPO is set but GIT_REPO_N8N/PLAYBOOK/PLATFORM are not — migrate to multi-repo vars"
+fi
+
+if [ ! -d "$START_DIR/n8n-as-code/.git" ] && [ ! -d "$START_DIR/prism-playbook/.git" ] && [ ! -d "$START_DIR/prism-platform/.git" ]; then
+    echo "[$PREFIX] No workspace repos cloned — set GIT_REPO_N8N, GIT_REPO_PLAYBOOK, GIT_REPO_PLATFORM"
     echo "# code-server workspace" > "$START_DIR/welcome.md"
-    echo "Set GIT_REPO in Railway environment to auto-clone a repository." >> "$START_DIR/welcome.md"
+    echo "Set GIT_REPO_N8N (and optional PLAYBOOK/PLATFORM) in Railway to auto-clone repositories." >> "$START_DIR/welcome.md"
 fi
 
 # ── 3. Restore VS Code settings from image ────────────
@@ -81,26 +107,29 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
 
 # ── 6. Configure n8n environment + update AI context ──
-if [ -n "$N8N_API_KEY" ]; then
-    echo "[$PREFIX] Configuring n8n environment..."
-    cd "$START_DIR" || true
-    if n8nac env list 2>/dev/null | grep -q "Personal"; then
-        printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
-        echo "[$PREFIX] ✓ n8n environment 'Personal' authenticated"
+if [ -n "$N8N_API_KEY" ] && [ -d "$N8N_AS_CODE_PROJECT_DIR" ]; then
+    echo "[$PREFIX] Configuring n8n environment in $N8N_AS_CODE_PROJECT_DIR ..."
+    cd "$N8N_AS_CODE_PROJECT_DIR" || true
+    if n8nac env list 2>/dev/null | grep -q "Dev"; then
+        n8nac env use Dev 2>&1 | tail -1
+        printf '%s' "$N8N_API_KEY" | n8nac env auth set Dev --api-key-stdin 2>&1 | head -1
+        echo "[$PREFIX] ✓ n8n environment 'Dev' authenticated"
     else
-        echo "[$PREFIX] Creating n8n environment 'Personal'..."
-        n8nac env add Personal \
+        echo "[$PREFIX] Creating n8n environment 'Dev'..."
+        n8nac env add Dev \
             --base-url https://primary-production-10917.up.railway.app \
-            --workflows-path workflows/starcke-n8n-railway-hosted 2>&1 | tail -1
-        printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
-        n8nac env use Personal 2>&1 | tail -1
-        echo "[$PREFIX] ✓ n8n environment 'Personal' created and authenticated"
+            --workflows-path workflows/dev 2>&1 | tail -1
+        printf '%s' "$N8N_API_KEY" | n8nac env auth set Dev --api-key-stdin 2>&1 | head -1
+        n8nac env use Dev 2>&1 | tail -1
+        echo "[$PREFIX] ✓ n8n environment 'Dev' created and authenticated"
     fi
     echo "[$PREFIX] Updating n8n AI context..."
     n8nac update-ai 2>&1 | tail -2
     echo "[$PREFIX] ✓ n8n AI context updated"
     WF_COUNT=$(n8nac list 2>&1 | grep -cE "^(│ )?[a-zA-Z0-9_-]+" || echo "0")
     echo "[$PREFIX] n8n: $WF_COUNT workflows available"
+elif [ -n "$N8N_API_KEY" ]; then
+    echo "[$PREFIX] ⚠ N8N_API_KEY set but $N8N_AS_CODE_PROJECT_DIR not found — skip n8nac setup"
 fi
 
 # ── 7. Generate native VS Code mcp.json ────────────────
@@ -112,6 +141,7 @@ python3 << 'PYEOF'
 import json, os
 
 start_dir = os.environ.get("START_DIR", "/home/coder/project")
+n8n_project_dir = os.environ.get("N8N_AS_CODE_PROJECT_DIR", start_dir + "/n8n-as-code")
 mcp_path = os.path.join(start_dir, ".vscode", "mcp.json")
 
 G = os.environ.get
@@ -162,7 +192,7 @@ mcp = {
             "command": "npx",
             "args": ["-y", "@n8n-as-code/mcp"],
             "env": {
-                "N8N_AS_CODE_PROJECT_DIR": start_dir + "/Codex_n8n-as-code",
+                "N8N_AS_CODE_PROJECT_DIR": n8n_project_dir,
                 "N8NAC_NATIVE_MCP_ENABLED": "1",
                 "N8N_NATIVE_MCP_URL": n8n_url,
                 "N8NAC_NATIVE_MCP_TOKEN": n8n_token
