@@ -5,6 +5,13 @@ START_DIR="${START_DIR:-/home/coder/project}"
 N8N_AS_CODE_PROJECT_DIR="${N8N_AS_CODE_PROJECT_DIR:-$START_DIR/n8n-as-code}"
 export START_DIR N8N_AS_CODE_PROJECT_DIR
 
+# Railway volumes mount as root; fix ownership then continue as coder
+if [ "$(id -u)" = "0" ]; then
+    mkdir -p "$START_DIR" /home/coder/.hermes
+    chown -R coder:coder "$START_DIR" /home/coder/.hermes
+    exec runuser -u coder -g coder -- bash "$0" "$@"
+fi
+
 mkdir -p "$START_DIR"
 
 # ── 1. Hermes setup ─────────────────────────────────────

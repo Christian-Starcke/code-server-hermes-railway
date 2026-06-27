@@ -38,6 +38,7 @@ ENV PORT=8080
 COPY entrypoint.sh /usr/bin/deploy-container-entrypoint.sh
 RUN chmod +x /usr/bin/deploy-container-entrypoint.sh
 
-USER coder
+# Entrypoint runs as root to chown the Railway volume, then drops to coder
+USER root
 
 ENTRYPOINT ["bash", "/usr/bin/deploy-container-entrypoint.sh"]
