@@ -27,7 +27,8 @@ RUN mkdir -p /home/coder/.npm-global && \
     npm install -g @railway/cli n8nac && \
     chown -R coder:coder /home/coder/.npm-global
 
-# Pre-configure VS Code settings (dark theme, ACP config)
+# Pre-configure VS Code settings (dark theme, ACP config, menu bar)
+COPY settings.json /etc/code-server-hermes/settings.json
 COPY settings.json /home/coder/.local/share/code-server/User/settings.json
 RUN chown -R coder:coder /home/coder/.local
 

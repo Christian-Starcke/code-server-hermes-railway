@@ -2,6 +2,7 @@
   "workbench.colorTheme": "Dark 2026",
   "workbench.preferredDarkColorTheme": "Dark 2026",
   "workbench.startupEditor": "none",
+  "window.menuBarVisibility": "classic",
   "acp.agents": {
     "Hermes Agent": {
       "command": "/opt/hermes/bin/hermes",

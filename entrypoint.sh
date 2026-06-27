@@ -97,7 +97,7 @@ fi
 # ── 3. Restore VS Code settings from image ────────────
 SETTINGS_DIR="/home/coder/.local/share/code-server/User"
 mkdir -p "$SETTINGS_DIR"
-cp /home/coder/.local/share/code-server/User/settings.json "$SETTINGS_DIR/settings.json" 2>/dev/null || true
+cp /etc/code-server-hermes/settings.json "$SETTINGS_DIR/settings.json"
 echo "[$PREFIX] ✓ Restored VS Code settings"
 
 # ── 4. Install VS Code extensions ────────────────────
@@ -307,7 +307,12 @@ for name in ("n8n-as-code", "prism-playbook", "prism-platform"):
 if not folders:
     folders = [{"name": "project", "path": "."}]
 
-workspace = {"folders": folders, "settings": {}}
+workspace = {
+    "folders": folders,
+    "settings": {
+        "window.menuBarVisibility": "classic"
+    },
+}
 with open(workspace_path, "w") as f:
     json.dump(workspace, f, indent=2)
 PYEOF
