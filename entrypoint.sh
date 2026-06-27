@@ -245,6 +245,28 @@ with open(gip, "w") as f:
 PYEOF
 echo "[$PREFIX] ✓ Generated native mcp.json with 12 MCP servers + .gitignore"
 
+# ── 7b. Multi-root workspace (n8n-as-code extension needs n8nac-config.json in a folder) ──
+WORKSPACE_FILE="$START_DIR/prism.code-workspace"
+python3 << 'PYEOF'
+import json, os
+
+start_dir = os.environ.get("START_DIR", "/home/coder/project")
+workspace_path = os.path.join(start_dir, "prism.code-workspace")
+
+folders = []
+for name in ("n8n-as-code", "prism-playbook", "prism-platform"):
+    if os.path.isdir(os.path.join(start_dir, name)):
+        folders.append({"name": name, "path": name})
+
+if not folders:
+    folders = [{"name": "project", "path": "."}]
+
+workspace = {"folders": folders, "settings": {}}
+with open(workspace_path, "w") as f:
+    json.dump(workspace, f, indent=2)
+PYEOF
+echo "[$PREFIX] ✓ Wrote multi-root workspace: $WORKSPACE_FILE"
+
 # ── 8. Verify Hermes ACP configuration ─────────────────
 echo "[$PREFIX] Checking Hermes ACP configuration..."
 /opt/hermes/bin/hermes acp --check 2>&1 && \
@@ -253,4 +275,8 @@ echo "[$PREFIX] Checking Hermes ACP configuration..."
 
 # ── 9. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
-exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$START_DIR"
+if [ -f "$WORKSPACE_FILE" ]; then
+    exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$WORKSPACE_FILE"
+else
+    exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$START_DIR"
+fi
