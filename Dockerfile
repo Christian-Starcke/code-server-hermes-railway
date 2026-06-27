@@ -25,7 +25,16 @@ ENV NPM_CONFIG_PREFIX=/home/coder/.npm-global
 ENV PATH="/home/coder/.npm-global/bin:$PATH"
 RUN mkdir -p /home/coder/.npm-global && \
     npm install -g @railway/cli n8nac && \
-    chown -R coder:coder /home/coder/.npm-global
+    chown -R coder:coder /home/coder/.npm-global && \
+    ln -sf /home/coder/.npm-global/bin/railway /usr/local/bin/railway && \
+    ln -sf /home/coder/.npm-global/bin/n8nac /usr/local/bin/n8nac
+
+# Default PATH for all login/interactive shells (code-server terminals use sh or bash)
+RUN printf '%s\n' \
+    'export PATH="/home/coder/.npm-global/bin:/opt/hermes/bin:$PATH"' \
+    'export N8NAC_TELEMETRY_DISABLED=1' \
+    > /etc/profile.d/code-server-hermes.sh && \
+    chmod 644 /etc/profile.d/code-server-hermes.sh
 
 # Pre-configure VS Code settings (dark theme, ACP config, menu bar)
 COPY settings.json /etc/code-server-hermes/settings.json

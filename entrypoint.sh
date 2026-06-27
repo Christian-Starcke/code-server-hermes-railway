@@ -118,9 +118,28 @@ BASHRC_MARKER="# code-server-hermes shell"
 if ! grep -qF "$BASHRC_MARKER" "$HOME/.bashrc" 2>/dev/null; then
     cat >> "$HOME/.bashrc" << 'EOF'
 # code-server-hermes shell
-export PATH="$HOME/.npm-global/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:/opt/hermes/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
 EOF
+fi
+if ! grep -qF "$BASHRC_MARKER" "$HOME/.profile" 2>/dev/null; then
+    cat >> "$HOME/.profile" << 'EOF'
+# code-server-hermes shell
+export PATH="$HOME/.npm-global/bin:/opt/hermes/bin:$PATH"
+export N8NAC_TELEMETRY_DISABLED=1
+EOF
+fi
+
+# Ensure Railway CLI exists (reinstall if npm-global was wiped)
+if ! command -v railway >/dev/null 2>&1; then
+    echo "[$PREFIX] Railway CLI missing — reinstalling @railway/cli ..."
+    npm install -g @railway/cli 2>&1 | tail -3
+    ln -sf "$HOME/.npm-global/bin/railway" /usr/local/bin/railway 2>/dev/null || true
+fi
+if command -v railway >/dev/null 2>&1; then
+    echo "[$PREFIX] ✓ Railway CLI at $(command -v railway)"
+else
+    echo "[$PREFIX] ⚠ Railway CLI install failed — try: npx @railway/cli whoami"
 fi
 
 # Persist railway CLI config on workspace volume (device-code login survives redeploys)
