@@ -242,8 +242,19 @@ gip = os.path.join(start_dir, ".vscode", ".gitignore")
 with open(gip, "w") as f:
     f.write("# MCP config with embedded secrets -- auto-generated at container startup\nmcp.json\n")
 
+# Multi-root workspaces read mcp.json per folder root, not the parent beside .code-workspace
+gitignore_line = "# MCP config with embedded secrets -- auto-generated at container startup\nmcp.json\n"
+for repo in ("n8n-as-code", "prism-playbook", "prism-platform"):
+    repo_vscode = os.path.join(start_dir, repo, ".vscode")
+    if os.path.isdir(os.path.join(start_dir, repo)):
+        os.makedirs(repo_vscode, exist_ok=True)
+        with open(os.path.join(repo_vscode, "mcp.json"), "w") as f:
+            json.dump(mcp, f, indent=2)
+        with open(os.path.join(repo_vscode, ".gitignore"), "w") as f:
+            f.write(gitignore_line)
+
 PYEOF
-echo "[$PREFIX] ✓ Generated native mcp.json with 12 MCP servers + .gitignore"
+echo "[$PREFIX] ✓ Generated native mcp.json with 12 MCP servers (+ per-folder copies for multi-root)"
 
 # ── 7b. Multi-root workspace (n8n-as-code extension needs n8nac-config.json in a folder) ──
 WORKSPACE_FILE="$START_DIR/prism.code-workspace"
