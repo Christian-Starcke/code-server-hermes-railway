@@ -77,7 +77,6 @@ code-server --install-extension etienne-lescot.n8n-as-code --force 2>&1 | tail -
 echo "[$PREFIX] ✓ n8n-as-code extension installed"
 
 # ── 5. Add Railway CLI to PATH ───────────────────────
-# Railway CLI is installed via npm at build time
 export PATH="$HOME/.npm-global/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
 
@@ -85,8 +84,6 @@ export N8NAC_TELEMETRY_DISABLED=1
 if [ -n "$N8N_API_KEY" ]; then
     echo "[$PREFIX] Configuring n8n environment..."
     cd "$START_DIR" || true
-    
-    # Check if the environment exists already
     if n8nac env list 2>/dev/null | grep -q "Personal"; then
         printf '%s' "$N8N_API_KEY" | n8nac env auth set Personal --api-key-stdin 2>&1 | head -1
         echo "[$PREFIX] ✓ n8n environment 'Personal' authenticated"
@@ -99,13 +96,9 @@ if [ -n "$N8N_API_KEY" ]; then
         n8nac env use Personal 2>&1 | tail -1
         echo "[$PREFIX] ✓ n8n environment 'Personal' created and authenticated"
     fi
-    
-    # Update AI context (schemas, skills, examples) for the IDE
     echo "[$PREFIX] Updating n8n AI context..."
     n8nac update-ai 2>&1 | tail -2
     echo "[$PREFIX] ✓ n8n AI context updated"
-    
-    # Show workflow count
     WF_COUNT=$(n8nac list 2>&1 | grep -cE "^(│ )?[a-zA-Z0-9_-]+" || echo "0")
     echo "[$PREFIX] n8n: $WF_COUNT workflows available"
 fi
@@ -121,17 +114,30 @@ import json, os
 start_dir = os.environ.get("START_DIR", "/home/coder/project")
 mcp_path = os.path.join(start_dir, ".vscode", "mcp.json")
 
+G = os.environ.get
+github_token   = G("GITHUB_TOKEN", "")
+firecrawl_key  = G("FIRECRAWL_API_KEY", "")
+retell_key     = G("RETELL_API_KEY", "")
+supabase_pat   = G("SUPABASE_PAT", "")
+resend_key     = G("RESEND_API_KEY", "")
+n8n_url        = G("N8N_NATIVE_MCP_URL", "")
+n8n_token      = G("N8N_NATIVE_MCP_TOKEN", "")
+openrouter_key = G("OPENROUTER_API_KEY", "")
+sentry_token   = G("SENTRY_ACCESS_TOKEN", "")
+betterstack_tk = G("BETTERSTACK_API_TOKEN", "")
+posthog_key    = G("POSTHOG_PERSONAL_API_KEY", "")
+
 mcp = {
     "mcpServers": {
         "github": {
             "command": "npx",
             "args": ["-y", "@modelcontextprotocol/server-github"],
-            "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": os.environ.get("GITHUB_TOKEN", "")}
+            "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": github_token}
         },
         "firecrawl": {
             "command": "npx",
             "args": ["-y", "firecrawl-mcp"],
-            "env": {"FIRECRAWL_API_KEY": os.environ.get("FIRECRAWL_API_KEY", "")}
+            "env": {"FIRECRAWL_API_KEY": firecrawl_key}
         },
         "railway": {
             "command": "/home/coder/.npm-global/bin/railway",
@@ -140,17 +146,17 @@ mcp = {
         "retellai": {
             "command": "npx",
             "args": ["-y", "@abhaybabbar/retellai-mcp-server"],
-            "env": {"RETELL_API_KEY": os.environ.get("RETELL_API_KEY", "")}
+            "env": {"RETELL_API_KEY": retell_key}
         },
         "supabase": {
             "command": "npx",
             "args": ["-y", "@supabase/mcp-server-supabase@latest",
-                     "--access-token", os.environ.get("SUPABASE_PAT", "")]
+                     "--access-token", supabase_pat]
         },
         "resend": {
             "command": "npx",
             "args": ["-y", "resend-mcp"],
-            "env": {"RESEND_API_KEY": os.environ.get("RESEND_API_KEY", "")}
+            "env": {"RESEND_API_KEY": resend_key}
         },
         "n8nac": {
             "command": "npx",
@@ -158,14 +164,14 @@ mcp = {
             "env": {
                 "N8N_AS_CODE_PROJECT_DIR": start_dir + "/Codex_n8n-as-code",
                 "N8NAC_NATIVE_MCP_ENABLED": "1",
-                "N8N_NATIVE_MCP_URL": os.environ.get("N8N_NATIVE_MCP_URL", ""),
-                "N8NAC_NATIVE_MCP_TOKEN": os.environ.get("N8N_NATIVE_MCP_TOKEN", "")
+                "N8N_NATIVE_MCP_URL": n8n_url,
+                "N8NAC_NATIVE_MCP_TOKEN": n8n_token
             }
         },
         "openrouter": {
             "command": "npx",
             "args": ["-y", "mcp-remote", "https://mcp.openrouter.ai/mcp",
-                     "--header", "Authorization: Bearer " + os.environ.get("OPENROUTER_API_KEY", "")]
+                     "--header", "Authorization: Bearer " + openrouter_key]
         },
         "vercel": {
             "url": "https://mcp.vercel.com"
@@ -174,19 +180,19 @@ mcp = {
             "command": "npx",
             "args": ["-y", "@sentry/mcp-server@latest"],
             "env": {
-                "SENTRY_ACCESS_TOKEN": os.environ.get("SENTRY_ACCESS_TOKEN", ""),
+                "SENTRY_ACCESS_TOKEN": sentry_token,
                 "MCP_DISABLE_SKILLS": "seer"
             }
         },
         "better-stack": {
             "command": "npx",
             "args": ["-y", "mcp-remote", "https://mcp.betterstack.com",
-                     "--header", "Authorization: Bearer " + os.environ.get("BETTERSTACK_API_TOKEN", "")]
+                     "--header", "Authorization: Bearer " + betterstack_tk]
         },
         "posthog": {
             "command": "npx",
             "args": ["-y", "mcp-remote", "https://mcp.posthog.com/mcp",
-                     "--header", "Authorization: Bearer " + os.environ.get("POSTHOG_PERSONAL_API_KEY", "")]
+                     "--header", "Authorization: Bearer " + posthog_key]
         }
     }
 }
@@ -195,14 +201,18 @@ os.makedirs(os.path.dirname(mcp_path), exist_ok=True)
 with open(mcp_path, "w") as f:
     json.dump(mcp, f, indent=2)
 
+gip = os.path.join(start_dir, ".vscode", ".gitignore")
+with open(gip, "w") as f:
+    f.write("# MCP config with embedded secrets -- auto-generated at container startup\nmcp.json\n")
+
 PYEOF
-echo "[$PREFIX] ✓ Generated native mcp.json with 12 MCP servers"
+echo "[$PREFIX] ✓ Generated native mcp.json with 12 MCP servers + .gitignore"
 
 # ── 8. Verify Hermes ACP configuration ─────────────────
 echo "[$PREFIX] Checking Hermes ACP configuration..."
 /opt/hermes/bin/hermes acp --check 2>&1 && \
     echo "[$PREFIX] ✓ Hermes ACP configuration valid" || \
-    echo "[$PREFIX] ⚠ Hermes ACP check failed — the extension may not connect"
+    echo "[$PREFIX] ⚠ Hermes ACP check failed -- the extension may not connect"
 
 # ── 9. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
