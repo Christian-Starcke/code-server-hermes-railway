@@ -28,6 +28,8 @@ Set these in your Railway service's **Variables** tab:
 | `GIT_REPO` | GitHub URL to auto-clone (e.g. `https://github.com/your-org/your-repo`) |
 | `HERMES_CONFIG_B64` | Base64-encoded copy of `~/.hermes/config.yaml` (if you have custom config) |
 | `START_DIR` | Working directory (default: `/home/coder/project`) |
+| `SEARXNG_URL` | SearXNG instance for Hermes `web_search` (recommended: `http://searxng-railway.railway.internal:8080` on Railway private network) |
+| `FIRECRAWL_API_KEY` | Firecrawl for `web_extract` and cloud browser on public URLs |
 
 ## How It Works
 
@@ -36,17 +38,22 @@ Railway container
 ├── code-server (VS Code in browser)
 │   └── ACP Client extension → spawns `hermes acp`
 ├── Hermes Agent (ACP mode)
-│   └── Same API keys, same config as your main Hermes
+│   ├── browser_* tools (local Playwright Chromium on volume)
+│   ├── web_search → SearXNG (when SEARXNG_URL set)
+│   └── web_extract / cloud browser → Firecrawl
 └── GIT_REPO → auto-cloned workspace
 ```
 
 1. Deploy to Railway using the button above
 2. Set `PASSWORD` and `OPENROUTER_API_KEY` (and optionally `GIT_REPO`) in your Railway Variables
-3. Open the Railway-generated URL (`https://your-service.up.railway.app`)
-4. Log in with your `PASSWORD`
-5. Open the **ACP Client** panel (ACP icon in the activity bar)
-6. **Hermes Agent** is pre-configured — click to connect
-7. Chat with Hermes inside your IDE
+3. Set `SEARXNG_URL` to your SearXNG service (same internal URL as hermes-agent if both are in one Railway project)
+4. Open the Railway-generated URL (`https://your-service.up.railway.app`)
+5. Log in with your `PASSWORD`
+6. Open the **ACP Client** panel (ACP icon in the activity bar)
+7. **Hermes Agent** is pre-configured — click to connect
+8. Chat with Hermes inside your IDE
+
+**First boot:** `hermes acp --setup-browser` downloads Chromium (~300–400 MB) to the Railway volume. This can take 2–5 minutes once; later redeploys reuse the cached browsers.
 
 ## Adding to Your Web App
 
@@ -83,13 +90,32 @@ The workspace Railway volume (`/home/coder/project`) stores:
 | `.code-server-persist/config/` | code-server secret storage (OAuth tokens) |
 | `.code-server-persist/gitconfig` | Git global config (token auth from `GITHUB_TOKEN`) |
 | `.code-server-persist/User/settings.json` | VS Code settings (seeded once from image) |
+| `.code-server-persist/hermes-node/` | Hermes `agent-browser` + Node bootstrap from `setup-browser` |
+| `.code-server-persist/hermes-playwright/` | Playwright Chromium cache for local `browser_*` tools |
 
 After the first GitHub sign-in in VS Code, it should persist across container restarts and redeploys. Set `GITHUB_TOKEN` in Railway for headless git/MCP auth on every boot.
+
+## Verify browser + search (post-deploy)
+
+Inside a code-server terminal:
+
+```bash
+grep -E 'search_backend|extract_backend' ~/.hermes/config.yaml
+grep SEARXNG_URL ~/.hermes/.env
+curl -s "http://searxng-railway.railway.internal:8080/search?q=test&format=json" | head -c 200
+ls -la ~/.hermes/node/bin/ 2>/dev/null
+hermes acp --check
+```
+
+In the ACP panel, try:
+
+- `Use web_search to find recent news about n8n` (SearXNG)
+- `browser_navigate to https://example.com and summarize the page` (browser tools)
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Builds the container — code-server + Python + Hermes ACP + VS Code extensions |
-| `entrypoint.sh` | Startup script — configures Hermes, clones repo, starts ACP server, launches code-server |
+| `Dockerfile` | Builds the container — code-server + Python + Hermes ACP + Playwright deps + VS Code extensions |
+| `entrypoint.sh` | Startup script — configures Hermes, browser bootstrap, clones repo, starts code-server |
 | `settings.json` | Pre-configured VS Code settings — ACP extension pointed at `hermes acp` |

@@ -34,6 +34,7 @@ N8N_API_KEY RAILWAY_API_TOKEN
 RESEND_API_KEY SENTRY_ACCESS_TOKEN
 BETTERSTACK_API_TOKEN POSTHOG_PERSONAL_API_KEY
 N8N_NATIVE_MCP_TOKEN N8N_NATIVE_MCP_URL
+SEARXNG_URL
 "
 
 for var in $ALL_KEYS; do
@@ -92,6 +93,50 @@ fi
 if [ ! -L "$HOME/.gitconfig" ]; then
     rm -f "$HOME/.gitconfig" 2>/dev/null || true
     ln -sfn "$PERSIST_GITCONFIG" "$HOME/.gitconfig"
+fi
+
+# Persist Hermes browser bootstrap (agent-browser + Playwright Chromium) on volume
+PERSIST_HERMES_NODE="$PERSIST_ROOT/hermes-node"
+PERSIST_HERMES_PLAYWRIGHT="$PERSIST_ROOT/hermes-playwright"
+mkdir -p "$PERSIST_HERMES_NODE" "$PERSIST_HERMES_PLAYWRIGHT"
+link_dir_to_volume "/home/coder/.hermes/node" "$PERSIST_HERMES_NODE"
+link_dir_to_volume "/home/coder/.hermes/playwright-browsers" "$PERSIST_HERMES_PLAYWRIGHT"
+export PLAYWRIGHT_BROWSERS_PATH="/home/coder/.hermes/playwright-browsers"
+
+# When SearXNG is configured, prefer it for web_search and Firecrawl for web_extract
+if [ -n "${SEARXNG_URL:-}" ]; then
+    /opt/hermes/bin/python3 << 'PYEOF'
+import os
+
+config_path = "/home/coder/.hermes/config.yaml"
+if not os.environ.get("SEARXNG_URL"):
+    raise SystemExit(0)
+
+try:
+    import yaml
+except ImportError:
+    print("[code-server-hermes] ⚠ PyYAML unavailable — skip web backend merge")
+    raise SystemExit(0)
+
+data = {}
+if os.path.isfile(config_path):
+    with open(config_path, encoding="utf-8") as f:
+        loaded = yaml.safe_load(f)
+        if isinstance(loaded, dict):
+            data = loaded
+
+web = data.get("web")
+if not isinstance(web, dict):
+    web = {}
+web["search_backend"] = "searxng"
+web["extract_backend"] = "firecrawl"
+data["web"] = web
+
+with open(config_path, "w", encoding="utf-8") as f:
+    yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+
+print("[code-server-hermes] ✓ web.search_backend=searxng, web.extract_backend=firecrawl")
+PYEOF
 fi
 
 # ── 2. Multi-repo workspace bootstrap ─────────────────
@@ -159,15 +204,17 @@ BASHRC_MARKER="# code-server-hermes shell"
 if ! grep -qF "$BASHRC_MARKER" "$HOME/.bashrc" 2>/dev/null; then
     cat >> "$HOME/.bashrc" << 'EOF'
 # code-server-hermes shell
-export PATH="$HOME/.npm-global/bin:/opt/hermes/bin:$PATH"
+export PATH="$HOME/.hermes/node/bin:$HOME/.npm-global/bin:/opt/hermes/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.hermes/playwright-browsers}"
 EOF
 fi
 if ! grep -qF "$BASHRC_MARKER" "$HOME/.profile" 2>/dev/null; then
     cat >> "$HOME/.profile" << 'EOF'
 # code-server-hermes shell
-export PATH="$HOME/.npm-global/bin:/opt/hermes/bin:$PATH"
+export PATH="$HOME/.hermes/node/bin:$HOME/.npm-global/bin:/opt/hermes/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.hermes/playwright-browsers}"
 EOF
 fi
 
@@ -378,13 +425,28 @@ with open(workspace_path, "w") as f:
 PYEOF
 echo "[$PREFIX] ✓ Wrote multi-root workspace: $WORKSPACE_FILE"
 
-# ── 8. Verify Hermes ACP configuration ─────────────────
-echo "[$PREFIX] Checking Hermes ACP configuration..."
-/opt/hermes/bin/hermes acp --check 2>&1 && \
-    echo "[$PREFIX] ✓ Hermes ACP configuration valid" || \
-    echo "[$PREFIX] ⚠ Hermes ACP check failed -- the extension may not connect"
+# ── 8. Bootstrap Hermes browser tools (Playwright + agent-browser) ──
+echo "[$PREFIX] Bootstrapping Hermes browser tools (first boot may take 2–5 min)..."
+if /opt/hermes/bin/hermes acp --setup-browser --yes 2>&1; then
+    echo "[$PREFIX] ✓ Hermes browser tools ready"
+    if [ -d "$HOME/.hermes/node/bin" ]; then
+        export PATH="$HOME/.hermes/node/bin:$PATH"
+    fi
+else
+    echo "[$PREFIX] ⚠ Browser bootstrap failed — Firecrawl cloud browser may still work for public URLs"
+fi
 
-# ── 9. Start code-server (foreground) ─────────────────
+# ── 9. Verify Hermes ACP configuration ─────────────────
+echo "[$PREFIX] Checking Hermes ACP configuration..."
+if /opt/hermes/bin/hermes acp --check 2>&1; then
+    echo "[$PREFIX] ✓ Hermes ACP configuration valid"
+else
+    echo "[$PREFIX] ⚠ Hermes ACP check failed -- the extension may not connect"
+fi
+echo "[$PREFIX] Hermes doctor (summary):"
+/opt/hermes/bin/hermes doctor 2>&1 | tail -20 || true
+
+# ── 10. Start code-server (foreground) ─────────────────
 echo "[$PREFIX] Starting code-server..."
 if [ -f "$WORKSPACE_FILE" ]; then
     exec /usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 "$WORKSPACE_FILE"
