@@ -199,6 +199,11 @@ echo "[$PREFIX] Installing GitHub Repository Manager extension..."
 code-server --install-extension henriquebruno.github-repository-manager --force 2>&1 | tail -1
 echo "[$PREFIX] ✓ GitHub Repository Manager extension installed"
 
+echo "[$PREFIX] Installing editor extensions (Error Lens, YAML)..."
+code-server --install-extension usernamehw.errorlens --force 2>&1 | tail -1
+code-server --install-extension redhat.vscode-yaml --force 2>&1 | tail -1
+echo "[$PREFIX] ✓ Error Lens and YAML extensions installed"
+
 # ── 5. Add Railway CLI to PATH ───────────────────────
 export PATH="$HOME/.npm-global/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1

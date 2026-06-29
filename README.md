@@ -58,6 +58,8 @@ Railway container
 - **ACP Client** — Hermes agent panel
 - **n8n-as-code** — n8n workflow sync in VS Code
 - **GitHub Repository Manager** — clone and browse GitHub repos from the sidebar
+- **Error Lens** — inline diagnostics in the editor
+- **YAML** — validation and formatting for YAML configs
 
 **First boot:** `hermes acp --setup-browser` downloads Chromium (~300–400 MB) to the Railway volume. This can take 2–5 minutes once; later redeploys reuse the cached browsers.
 
@@ -123,6 +125,6 @@ In the ACP panel, try:
 | File | Purpose |
 |------|---------|
 | `Dockerfile` | Builds the container — code-server + Python + Hermes ACP + Playwright deps |
-| `entrypoint.sh` | Reinstalls VS Code extensions (ACP, n8n-as-code, GitHub Repository Manager) on every boot |
+| `entrypoint.sh` | Reinstalls VS Code extensions (ACP, n8n-as-code, GitHub Repository Manager, Error Lens, YAML) on every boot |
 | `entrypoint.sh` | Startup script — configures Hermes, browser bootstrap, clones repo, starts code-server |
 | `settings.json` | Pre-configured VS Code settings — ACP extension pointed at `hermes acp` |
