@@ -53,6 +53,12 @@ Railway container
 7. **Hermes Agent** is pre-configured — click to connect
 8. Chat with Hermes inside your IDE
 
+**Pre-installed extensions** (reinstalled automatically on every deploy):
+
+- **ACP Client** — Hermes agent panel
+- **n8n-as-code** — n8n workflow sync in VS Code
+- **GitHub Repository Manager** — clone and browse GitHub repos from the sidebar
+
 **First boot:** `hermes acp --setup-browser` downloads Chromium (~300–400 MB) to the Railway volume. This can take 2–5 minutes once; later redeploys reuse the cached browsers.
 
 ## Adding to Your Web App
@@ -116,6 +122,7 @@ In the ACP panel, try:
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Builds the container — code-server + Python + Hermes ACP + Playwright deps + VS Code extensions |
+| `Dockerfile` | Builds the container — code-server + Python + Hermes ACP + Playwright deps |
+| `entrypoint.sh` | Reinstalls VS Code extensions (ACP, n8n-as-code, GitHub Repository Manager) on every boot |
 | `entrypoint.sh` | Startup script — configures Hermes, browser bootstrap, clones repo, starts code-server |
 | `settings.json` | Pre-configured VS Code settings — ACP extension pointed at `hermes acp` |

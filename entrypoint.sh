@@ -195,6 +195,10 @@ echo "[$PREFIX] Installing n8n-as-code extension..."
 code-server --install-extension etienne-lescot.n8n-as-code --force 2>&1 | tail -1
 echo "[$PREFIX] ✓ n8n-as-code extension installed"
 
+echo "[$PREFIX] Installing GitHub Repository Manager extension..."
+code-server --install-extension henriquebruno.github-repository-manager --force 2>&1 | tail -1
+echo "[$PREFIX] ✓ GitHub Repository Manager extension installed"
+
 # ── 5. Add Railway CLI to PATH ───────────────────────
 export PATH="$HOME/.npm-global/bin:$PATH"
 export N8NAC_TELEMETRY_DISABLED=1
