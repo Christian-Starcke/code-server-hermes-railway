@@ -55,6 +55,45 @@ if [ -n "$HERMES_CONFIG_B64" ]; then
     echo "[$PREFIX] ✓ Restored Hermes config.yaml"
 fi
 
+# ── 1b. Persist VS Code / GitHub auth on workspace volume ──
+# Railway volumes only mount at START_DIR; ~/.local and ~/.config are wiped on redeploy.
+# Mirror the Railway CLI pattern: store state on the volume and symlink into $HOME.
+PERSIST_ROOT="$START_DIR/.code-server-persist"
+PERSIST_USER="$PERSIST_ROOT/User"
+PERSIST_CONFIG="$PERSIST_ROOT/config"
+PERSIST_GITCONFIG="$PERSIST_ROOT/gitconfig"
+mkdir -p "$PERSIST_USER/globalStorage" "$PERSIST_CONFIG"
+
+link_dir_to_volume() {
+    local target="$1"
+    local persist="$2"
+    mkdir -p "$persist" "$(dirname "$target")"
+    if [ -L "$target" ]; then
+        return 0
+    fi
+    if [ -d "$target" ] && [ "$(ls -A "$target" 2>/dev/null)" ]; then
+        cp -a "$target/." "$persist/" 2>/dev/null || true
+        rm -rf "$target"
+    elif [ -f "$target" ]; then
+        cp -a "$target" "$persist/" 2>/dev/null || true
+        rm -f "$target"
+    fi
+    ln -sfn "$persist" "$target"
+}
+
+SETTINGS_DIR="/home/coder/.local/share/code-server/User"
+mkdir -p "$SETTINGS_DIR"
+link_dir_to_volume "$SETTINGS_DIR/globalStorage" "$PERSIST_USER/globalStorage"
+link_dir_to_volume "/home/coder/.config/code-server" "$PERSIST_CONFIG"
+
+if [ ! -f "$PERSIST_GITCONFIG" ]; then
+    touch "$PERSIST_GITCONFIG"
+fi
+if [ ! -L "$HOME/.gitconfig" ]; then
+    rm -f "$HOME/.gitconfig" 2>/dev/null || true
+    ln -sfn "$PERSIST_GITCONFIG" "$HOME/.gitconfig"
+fi
+
 # ── 2. Multi-repo workspace bootstrap ─────────────────
 configure_git_auth() {
     if [ -n "$GITHUB_TOKEN" ]; then
@@ -94,10 +133,12 @@ if [ ! -d "$START_DIR/n8n-as-code/.git" ] && [ ! -d "$START_DIR/prism-playbook/.
     echo "Set GIT_REPO_N8N (and optional PLAYBOOK/PLATFORM) in Railway to auto-clone repositories." >> "$START_DIR/welcome.md"
 fi
 
-# ── 3. Restore VS Code settings from image ────────────
-SETTINGS_DIR="/home/coder/.local/share/code-server/User"
-mkdir -p "$SETTINGS_DIR"
-cp /etc/code-server-hermes/settings.json "$SETTINGS_DIR/settings.json"
+# ── 3. Restore VS Code settings from image (seed once on volume) ──
+if [ ! -f "$PERSIST_USER/settings.json" ]; then
+    cp /etc/code-server-hermes/settings.json "$PERSIST_USER/settings.json"
+fi
+ln -sfn "$PERSIST_USER/settings.json" "$SETTINGS_DIR/settings.json"
+echo "[$PREFIX] ✓ VS Code/GitHub state persisted on workspace volume"
 echo "[$PREFIX] ✓ Restored VS Code settings"
 
 # ── 4. Install VS Code extensions ────────────────────

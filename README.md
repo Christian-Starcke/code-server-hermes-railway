@@ -71,6 +71,21 @@ export function CodeWorkspace() {
 
 The Hermes inside code-server is a **separate instance** from your main Railway Hermes — it shares API keys but has its own sessions. They don't conflict.
 
+## Persistent state (survives redeploys)
+
+The workspace Railway volume (`/home/coder/project`) stores:
+
+| Path on volume | Purpose |
+|----------------|---------|
+| `n8n-as-code/`, `prism-*` | Cloned git repos |
+| `.railway-cli/` | Railway CLI login (symlinked from `~/.railway`) |
+| `.code-server-persist/User/globalStorage/` | VS Code extension state (GitHub sign-in, etc.) |
+| `.code-server-persist/config/` | code-server secret storage (OAuth tokens) |
+| `.code-server-persist/gitconfig` | Git global config (token auth from `GITHUB_TOKEN`) |
+| `.code-server-persist/User/settings.json` | VS Code settings (seeded once from image) |
+
+After the first GitHub sign-in in VS Code, it should persist across container restarts and redeploys. Set `GITHUB_TOKEN` in Railway for headless git/MCP auth on every boot.
+
 ## Files
 
 | File | Purpose |
